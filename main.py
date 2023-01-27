@@ -22,7 +22,7 @@ logger.info("Data loaded")
 experiment_report = build_mc_report(
     df=df,
     metric_config=_load_yaml_preset("todo"),
-    mс_config=_load_yaml_preset("montecarlo/todo")
+    mс_config=_load_yaml_preset("mc")
 )
 experiment_report.to_csv(f"montecarlo_report.csv")
 
