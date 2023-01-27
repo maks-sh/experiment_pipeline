@@ -93,19 +93,3 @@ def build_experiment_report(df, metric_config):
         reports.append(metric_report.report)
 
     return pd.concat(reports)
-
-
-def build_mc_report(df, metric_config, mc_config):
-    # estimatir | metric | %
-    lifts_params = mc_config['lifts']
-    build_metric_report = BuildMetricReport()
-    reports = []
-
-    for metric_params in metric_config:
-        metric_parsed = Metric(metric_params)
-        for lift in np.arange(lifts_params['start'], lifts_params['end'], lifts_params['by']):
-            calculated_metric = CalculateMetric(metric_parsed)(df)
-            metric_report = build_metric_report(calculated_metric, metric_parsed)
-            reports.append(metric_report.report)
-
-    return pd.concat(reports)
