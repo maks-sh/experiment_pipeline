@@ -7,6 +7,7 @@ from itertools import product
 from metric_builder import Metric, CalculateMetric
 from stattests import TTestFromStats, UTest, PropTestFromStats, Statistics, calculate_statistics, calculate_linearization
 from collections import namedtuple
+from tqdm.auto import tqdm
 
 
 class Report:
