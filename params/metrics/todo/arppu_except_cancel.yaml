@@ -1,18 +1,12 @@
 name: Average Revenue per Paying User Without Cancelation
 type: ratio
-estimator: mann_whitney
+estimator: mann_whitney_test
 level: user_pseudo_id
 numerator:
   aggregation_field: revenue
   aggregation_function: sum
-numerator_conditions:
-  - condition_field: pg_status
-    comparison_sign: not_equal
-    comparison_value: CANCELED
+numerator_condition: "pg_status == 'CANCELED'"
 denominator:
   aggregation_field: user_pseudo_id
   aggregation_function: count_distinct
-denominator_conditions:
-  - condition_field: event_name
-    comparison_sign: equal
-    comparison_value: purchase
+denominator_conditions: "event_name == 'purchase'"

@@ -5,10 +5,7 @@ level: user_pseudo_id
 numerator:
   aggregation_field: order_id
   aggregation_function: count_distinct
-numerator_conditions:
-  - condition_field: pg_status
-    comparison_sign: equal
-    comparison_value: CANCELED
+numerator_condition: "pg_status == 'CANCELED'"
 denominator:
   aggregation_field: order_id
   aggregation_function: count_distinct

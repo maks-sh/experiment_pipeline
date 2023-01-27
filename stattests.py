@@ -2,8 +2,8 @@ import pandas as pd
 import numpy as np
 import abc
 
-from scipy.stats import ttest_ind_from_stats, ttest_ind
-
+from scipy.stats import ttest_ind_from_stats, mannwhitneyu
+from statsmodels.stats.proportion import proportions_ztest
 import config as cfg
 
 
@@ -14,13 +14,25 @@ class EstimatorCriteriaValues:
 
 
 class Statistics:
-    def __init__(self, mean_0: float, mean_1: float, var_0: float, var_1: float, n_0: int, n_1: int):
+    def __init__(
+            self,
+            mean_0: float = None,
+            mean_1: float = None,
+            var_0: float = None,
+            var_1: float = None,
+            count_0: int = None,
+            count_1: int = None,
+            nobs_0: int = None,
+            nobs_1: int = None,
+    ):
         self.mean_0 = mean_0
         self.mean_1 = mean_1
         self.var_0 = var_0
         self.var_1 = var_1
-        self.n_0 = n_0
-        self.n_1 = n_1
+        self.count_0 = count_0
+        self.count_1 = count_1
+        self.nobs_0 = nobs_0
+        self.nobs_1 = nobs_1
 
 
 class MetricStats(abc.ABC):
@@ -38,14 +50,49 @@ class Estimator(abc.ABC):
 class BaseStatsRatio(MetricStats):
     def __call__(self, df) -> Statistics:
         _unique_variants = df[cfg.VARIANT_COL].unique()
-        n_0 = sum(df['n'][df[cfg.VARIANT_COL] == _unique_variants[0]])
-        n_1 = sum(df['n'][df[cfg.VARIANT_COL] == _unique_variants[1]])
+        nobs_0 = sum(df['n'][df[cfg.VARIANT_COL] == _unique_variants[0]])
+        nobs_1 = sum(df['n'][df[cfg.VARIANT_COL] == _unique_variants[1]])
         mean_0 = sum(df['num'][df[cfg.VARIANT_COL] == _unique_variants[0]]) / sum(df['den'][df[cfg.VARIANT_COL] == _unique_variants[0]])
         mean_1 = sum(df['num'][df[cfg.VARIANT_COL] == _unique_variants[1]]) / sum(df['den'][df[cfg.VARIANT_COL] == _unique_variants[1]])
-        var_0 = df['l_ratio'][df[cfg.VARIANT_COL] == _unique_variants[0]].var()
-        var_1 = df['l_ratio'][df[cfg.VARIANT_COL] == _unique_variants[1]].var()
+        if 'l_ratio' in df.columns:
+            var_0 = df['l_ratio'][df[cfg.VARIANT_COL] == _unique_variants[0]].var()
+            var_1 = df['l_ratio'][df[cfg.VARIANT_COL] == _unique_variants[1]].var()
+        else:
+            var_0 = df['num'][df[cfg.VARIANT_COL] == _unique_variants[0]].var()
+            var_1 = df['num'][df[cfg.VARIANT_COL] == _unique_variants[1]].var()
 
-        return Statistics(mean_0, mean_1, var_0, var_1, n_0, n_1)
+        return Statistics(
+            mean_0=mean_0,
+            mean_1=mean_1,
+            var_0=var_0,
+            var_1=var_1,
+            nobs_0=nobs_0,
+            nobs_1=nobs_1,
+        )
+
+
+class BaseStats(MetricStats):
+    def __call__(self, df) -> Statistics:
+        _unique_variants = df[cfg.VARIANT_COL].unique()
+        nobs_0 = sum(df['n'][df[cfg.VARIANT_COL] == _unique_variants[0]])
+        nobs_1 = sum(df['n'][df[cfg.VARIANT_COL] == _unique_variants[1]])
+        count_0 = sum(df[(df[cfg.VARIANT_COL] == _unique_variants[1])]['num'] != 0)
+        count_1 = sum(df[(df[cfg.VARIANT_COL] == _unique_variants[1])]['num'] != 0)
+        mean_0 = df['num'][df[cfg.VARIANT_COL] == _unique_variants[0]].mean()
+        mean_1 = df['num'][df[cfg.VARIANT_COL] == _unique_variants[1]].mean()
+        var_0 = df['num'][df[cfg.VARIANT_COL] == _unique_variants[0]].var()
+        var_1 = df['num'][df[cfg.VARIANT_COL] == _unique_variants[1]].var()
+
+        return Statistics(
+            mean_0=mean_0,
+            mean_1=mean_1,
+            var_0=var_0,
+            var_1=var_1,
+            nobs_0=nobs_0,
+            nobs_1=nobs_1,
+            count_0=count_0,
+            count_1=count_1,
+        )
 
 
 class Linearization():
@@ -64,10 +111,41 @@ class TTestFromStats(Estimator):
             statistic, pvalue = ttest_ind_from_stats(
                 mean1=stat.mean_0,
                 std1=np.sqrt(stat.var_0),
-                nobs1=stat.n_0,
+                nobs1=stat.nobs_0,
                 mean2=stat.mean_1,
                 std2=np.sqrt(stat.var_1),
-                nobs2=stat.n_1
+                nobs2=stat.nobs_1
+            )
+        except Exception as e:
+            cfg.logger.error(e)
+            statistic, pvalue = None, None
+
+        return EstimatorCriteriaValues(pvalue, statistic)
+
+
+class UTest(Estimator):
+
+    def __call__(self, df: pd.DataFrame) -> EstimatorCriteriaValues:
+        try:
+            _unique_variants = df[cfg.VARIANT_COL].unique()
+            statistic, pvalue = mannwhitneyu(
+                df['num'][df[cfg.VARIANT_COL] == _unique_variants[0]],
+                df['num'][df[cfg.VARIANT_COL] == _unique_variants[1]]
+            )
+        except Exception as e:
+            cfg.logger.error(e)
+            statistic, pvalue = None, None
+
+        return EstimatorCriteriaValues(pvalue, statistic)
+
+
+class PropTestFromStats(Estimator):
+
+    def __call__(self, stat: Statistics) -> EstimatorCriteriaValues:
+        try:
+            statistic, pvalue = proportions_ztest(
+                count=[stat.count_0, stat.count_1],
+                nobs=[stat.nobs_0, stat.nobs_1]
             )
         except Exception as e:
             cfg.logger.error(e)
@@ -78,8 +156,9 @@ class TTestFromStats(Estimator):
 
 def calculate_statistics(df, type):
     mappings = {
-        "ratio": BaseStatsRatio()
-        # TODO расчет статистик не для ratio
+        "ratio": BaseStatsRatio(),
+        "continuous": BaseStats(),
+        "proportion":  BaseStats(),
     }
 
     calculate_method = mappings[type]
@@ -106,4 +185,3 @@ def calculate_linearization(df):
         df.loc[df[cfg.VARIANT_COL] == _variants[1], 'l_ratio'] = l_1
 
     return df
-

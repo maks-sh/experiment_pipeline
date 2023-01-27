@@ -21,8 +21,8 @@ logger.info("Data loaded")
 
 experiment_report = build_experiment_report(
     df=df,
-    metric_config=_load_yaml_preset()
+    metric_config=_load_yaml_preset("todo")
 )
 experiment_report.to_csv(f"experiment_report.csv")
 
-cfg.logger.info(time.time() - start_time)
+cfg.logger.info(f'Time execution: {time.time() - start_time:.1f}s')

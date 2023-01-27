@@ -23,14 +23,18 @@ class Metric:
         self.type = metric_config.get("type", config.DEFAULT_METRIC_TYPE)
         self.level = metric_config.get("level", config.DEFAULT_UNIT_LEVEL)
         self.estimator = metric_config.get("estimator", config.DEFAULT_ESTIMATOR)
+        self.num_query = metric_config.get("numerator_condition", config.DEFAULT_CONDITION)
         self.numerator = metric_config.get("numerator", config.DEFAULT_VALUE)
         self.numerator_aggregation_field = self.numerator.get("aggregation_field", config.DEFAULT_VALUE)
         self.denominator = metric_config.get("denominator", config.DEFAULT_VALUE)
+        self.denum_query = metric_config.get("denumerator_condition", config.DEFAULT_CONDITION)
         self.denominator_aggregation_field = self.denominator.get("aggregation_field", config.DEFAULT_VALUE)
         numerator_aggregation_function = self.numerator.get("aggregation_function", config.DEFAULT_VALUE)
         denominator_aggregation_function = self.denominator.get("aggregation_function", config.DEFAULT_VALUE)
         self.numerator_aggregation_function = self._map_aggregation_function(numerator_aggregation_function)
         self.denominator_aggregation_function = self._map_aggregation_function(denominator_aggregation_function)
+        self.gen_query = metric_config.get("condition", config.DEFAULT_CONDITION)
+
 
     @staticmethod
     def _map_aggregation_function(aggregation_function):
@@ -50,13 +54,16 @@ class Metric:
 class CalculateMetric:
     def __init__(self, metric: Metric):
         self.metric = metric
+        self.num_query = metric.num_query
+        self.denum_query = metric.denum_query
+        self.gen_query = metric.gen_query
 
     def __call__(self, df):
-        return df.groupby([config.VARIANT_COL, self.metric.level]).apply(
-            lambda df: pd.Series({
-                "num": self.metric.numerator_aggregation_function(df[self.metric.numerator_aggregation_field]),
-                "den": self.metric.denominator_aggregation_function(df[self.metric.denominator_aggregation_field]),
-                "n": pd.Series.nunique(df[self.metric.level])
+        return df.query(self.gen_query).groupby([config.VARIANT_COL, self.metric.level]).apply(
+            lambda group: pd.Series({
+                "num": self.metric.numerator_aggregation_function(group.query(self.num_query)[self.metric.numerator_aggregation_field]),
+                "den": self.metric.denominator_aggregation_function(group.query(self.denum_query)[self.metric.denominator_aggregation_field]),
+                "n": pd.Series.nunique(group[self.metric.level])
             })
         ).reset_index()
 

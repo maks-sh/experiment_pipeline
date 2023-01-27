@@ -1,7 +1,8 @@
 import logging
-import os, sys
-import pandas as pd
 import numpy as np
+import os
+import pandas as pd
+import sys
 from dotenv import load_dotenv
 
 base_path = os.path.dirname(os.path.abspath(__file__))
@@ -18,8 +19,7 @@ PATH_METRIC_CONFIGS = "params/metrics/"
 DEFAULT_ESTIMATOR = "t_test_linearization"
 DEFAULT_METRIC_TYPE = "ratio"
 DEFAULT_UNIT_LEVEL = "client_id"
+DEFAULT_CONDITION = "index == index"
 DEFAULT_VALUE = "Unknown"
 VARIANT_COL = "experiment_variant"
 USER_ID_COL = "client_id"
-
-
