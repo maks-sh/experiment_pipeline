@@ -19,10 +19,11 @@ start_time = time.time()
 df = pd.read_csv("data/csv/df_sample.csv")
 logger.info("Data loaded")
 
-experiment_report = build_experiment_report(
+experiment_report = build_mc_report(
     df=df,
-    metric_config=_load_yaml_preset("todo")
+    metric_config=_load_yaml_preset("todo"),
+    mс_config=_load_yaml_preset("montecarlo/todo")
 )
-experiment_report.to_csv(f"experiment_report.csv")
+experiment_report.to_csv(f"montecarlo_report.csv")
 
 cfg.logger.info(f'Time execution: {time.time() - start_time:.1f}s')

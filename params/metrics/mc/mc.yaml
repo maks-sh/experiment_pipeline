@@ -1,11 +1,9 @@
-estimators:
-  - t_test
-  - mann_whitney
-  - z_prop_test
+alpha: 0.05
+iters: 2
 lifts:
-  start: 0
-  end: 10
-  by: 1
+  start: 1.09
+  end: 1.10
+  by: 0.01
 #Бонус - трансформации
 #transforms:
 #  - np.log

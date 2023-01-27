@@ -96,16 +96,29 @@ def build_experiment_report(df, metric_config):
 
 
 def build_mc_report(df, metric_config, mc_config):
-    # estimatir | metric | %
+    # estimator | metric | %
+    mc_config = mc_config[0]
     lifts_params = mc_config['lifts']
     build_metric_report = BuildMetricReport()
     reports = []
 
-    for metric_params in metric_config:
-        metric_parsed = Metric(metric_params)
-        for lift in np.arange(lifts_params['start'], lifts_params['end'], lifts_params['by']):
-            calculated_metric = CalculateMetric(metric_parsed)(df)
-            metric_report = build_metric_report(calculated_metric, metric_parsed)
-            reports.append(metric_report.report)
+    for lift in tqdm(np.arange(lifts_params['start'], lifts_params['end'], lifts_params['by'])):
+        for i in range(mc_config['iters']):
+            df_ = df.copy()
+            df_[cfg.VARIANT_COL] = np.random.choice(2, len(df))
+            df_.loc[df_[cfg.VARIANT_COL] == 1, metric_parsed.numerator_aggregation_field] = df_.loc[df_[
+                                                                                                        cfg.VARIANT_COL] == 1, metric_parsed.numerator_aggregation_field] * lift
+            report = build_experiment_report(
+                df=df_,
+                metric_config=metric_config
+            )
+            report.loc[:, 'is_reject'] = report['pvalue'] < mc_config['alpha']
+            report.loc[:, 'real_lift'] = lift
+            report.loc[:, 'iter'] = i
 
-    return pd.concat(reports)
+            reports.append(report)
+
+    main = pd.concat(reports)
+    main = main.groupby(['estimator', 'metric_name', 'real_lift'])['is_reject'].mean().unstack().reset_index()
+
+    return main
